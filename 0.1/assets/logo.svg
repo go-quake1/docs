@@ -1,0 +1,14 @@
+<svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="go-quake1">
+  <defs>
+    <linearGradient id="qred1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#B83232"/>
+      <stop offset="1" stop-color="#5A0C0C"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#qred1)"/>
+  <g fill="#FFFFFF" fill-rule="evenodd">
+    <path d="M126 60 L184 92 L184 156 L126 188 L68 156 L68 92 z
+             M126 88 L160 108 L160 140 L126 160 L92 140 L92 108 z"/>
+    <path d="M158 172 L184 156 L228 232 L198 236 Z"/>
+  </g>
+</svg>
