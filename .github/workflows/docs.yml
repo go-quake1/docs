@@ -33,7 +33,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       # mike publishes versioned docs to the gh-pages branch; GitHub Pages serves
-      # that branch at https://go-embedded-ruby.github.io/docs/. The version label
+      # that branch at https://go-quake1.github.io/docs/. The version label
       # tracks main as "0.1" aliased "latest"; tag-driven versions can be added
       # later. /docs/ redirects to the default ("latest").
       - name: Deploy versioned docs
