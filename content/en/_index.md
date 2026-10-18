@@ -1,4 +1,9 @@
-# go-quake1 documentation
+---
+title: "Home"
+weight: 10
+---
+
+# go-quake1 documentation {#go-quake1-documentation}
 
 **A pure-Go [Quake](https://en.wikipedia.org/wiki/Quake_(video_game)) 1 (id Tech 1,
 1996) engine** for bare-metal TamaGo + UEFI under the
@@ -11,7 +16,7 @@ DOOM → Quake roadmap. The family also reserves
 [go-quake2](https://github.com/go-quake2) (id Tech 2) and
 [go-quake3](https://github.com/go-quake3) (id Tech 3).
 
-## Status
+## Status {#status}
 
 **Phase Q-1a in flight** — hand-porting tyrquake-NQ to pure Go one module at a
 time, with parity tests against the upstream C behaviour. Every ported package
@@ -29,14 +34,14 @@ architectures.
 | **client** + soft renderer (`r_*`, `d_*`, `cl_*`) | pending |
 | **sound** (`snd_dma` + `snd_mem` + `snd_mix`) | pending |
 
-## Licensing
+## Licensing {#licensing}
 
 The repository is a **BSD-3-Clause wrapper** around the **GPL-2.0 engine** code
 (id Tech 1 is GPL): the cloud-boot adapters and tooling are BSD-3, while the
 ported engine retains the upstream GPL-2.0 license — see the
 [engine repository](https://github.com/go-quake1/engine).
 
-## Where to go next
+## Where to go next {#where-to-go-next}
 
 - Source: [github.com/go-quake1/engine](https://github.com/go-quake1/engine)
 - The shared boot architecture and the DOOM → Quake roadmap live in
