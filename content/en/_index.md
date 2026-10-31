@@ -34,6 +34,16 @@ architectures.
 | **client** + soft renderer (`r_*`, `d_*`, `cl_*`) | pending |
 | **sound** (`snd_dma` + `snd_mem` + `snd_mix`) | pending |
 
+## Sound in the wasmbox desktop {#wasmbox-sound}
+
+Quake runs as a window of the [wasmbox](https://github.com/wasmdesk/wasmbox) web desktop
+in a Web Worker, which has no `AudioContext`. The wasmbox backend therefore writes the
+mixer output (11025 Hz stereo) as float32 PCM into a lock-free `SharedArrayBuffer` ring
+([`wasmbox/audioring`](https://pkg.go.dev/github.com/wasmdesk/wasmbox/audioring)), and
+the wasmbox page plays it from an AudioWorklet, resuming on the first click or key. The
+ring is 1024 frames (93 ms); what does not fit is dropped rather than blocking the game
+loop.
+
 ## Licensing {#licensing}
 
 The repository is a **BSD-3-Clause wrapper** around the **GPL-2.0 engine** code
