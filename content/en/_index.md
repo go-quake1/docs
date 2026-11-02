@@ -44,6 +44,22 @@ the wasmbox page plays it from an AudioWorklet, resuming on the first click or k
 ring is 1024 frames (93 ms); what does not fit is dropped rather than blocking the game
 loop.
 
+## WebGPU presenter in the browser build {#webgpu-present}
+
+The standalone browser build (`cmd/quake-wasm`) shows its frame through
+[WebGPU](https://github.com/go-gfx/webgpu) when the browser has a hardware adapter. The
+software rasterizer still draws the 8-bit palettized frame; the index buffer is uploaded as
+an `r8uint` texture and the palette as a 256x1 texture, and a fragment shader does the
+palette lookup and the scaling to the canvas, with one batched submit per frame. The CPU no
+longer converts the frame to RGBA or calls `putImageData`. Without an adapter (or with only
+a software one such as SwiftShader) the page keeps the Canvas2D path.
+
+A browser test reads the canvas back and compares every pixel with the CPU conversion; a
+wrong palette index must make it fail. `quake-bench present` measures the Canvas2D path and
+the WebGPU path in interleaved rounds on the same machine, discarding any round above a
+1-minute load of 8. The figures, and what is still on the CPU (the BSP walk and the span
+filling), are in the engine repository under `docs/webgpu-present/`.
+
 ## Licensing {#licensing}
 
 The repository is a **BSD-3-Clause wrapper** around the **GPL-2.0 engine** code
