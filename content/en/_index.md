@@ -78,9 +78,28 @@ perspective-correct). The check needs the shareware `pak0.pak`, which is never i
 repository. The reference draws in the engine's walk order with no depth test and no back-face
 cull, so where faces overlap the picture depends on the draw order (reversing the order changes
 19% of the pixels): the GPU path matches it on purpose, and hidden-surface handling like GLQuake's
-is a later step. Sky, water, alias models, dynamic
-lights and animated lightstyles are also later steps. Figures:
+is a later step. Dynamic lights and animated lightstyles are also later steps. Figures:
 `docs/webgpu-world/` in the engine repository.
+
+### Alias models, sky and water on the GPU
+
+Since v0.4.0 the GPU also draws, after the world and in the same 8-bit frame, the alias models
+(monsters, items and a view weapon), the sky and the water (`*` textures). Each is compared with
+the engine's own software fill on 16 fixed `e1m1` views, over the region the part covers, with a
+tolerance stated before the first measurement (3% of pixels not explained by a one-pixel
+shift) and a planted corrupted texture that must fail the check:
+
+| part | unexplained | software alone, 1280x800 | GPU wall time alone |
+|---|---|---|---|
+| alias models | 0.10% | 0.595 ms | 0.635 ms (not faster) |
+| sky | 2.32% | 6.12 ms | 0.585 ms |
+| water | 0.05% | 8.42 ms | 2.0 ms |
+
+The references are the engine's ports, which differ from tyrquake's software renderer (its sky
+is a dome, its alias light is Gouraud). The GPU wall time includes a floor of about half a
+millisecond, so the alias figure is not resolved from the CPU one; GPU time itself is not
+measured yet. Figures and methods: `docs/webgpu-world/2026-11-03-*.md` in the engine
+repository.
 
 ## Licensing {#licensing}
 
