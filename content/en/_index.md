@@ -95,11 +95,33 @@ shift) and a planted corrupted texture that must fail the check:
 | sky | 2.32% | 6.12 ms | 0.585 ms |
 | water | 0.05% | 8.42 ms | 2.0 ms |
 
-The references are the engine's ports, which differ from tyrquake's software renderer (its sky
-is a dome, its alias light is Gouraud). The GPU wall time includes a floor of about half a
-millisecond, so the alias figure is not resolved from the CPU one; GPU time itself is not
-measured yet. Figures and methods: `docs/webgpu-world/2026-11-03-*.md` in the engine
-repository.
+The GPU wall time includes a floor of about half a millisecond, so the alias figure is not
+resolved from the CPU one; GPU time itself is not measured yet. Figures and methods:
+`docs/webgpu-world/2026-11-03-*.md` in the engine repository.
+
+### The software reference is now Quake's own (v0.5.0)
+
+Those first references were the engine's own approximations, not tyrquake's: its sky was not the
+dome, its water not the `Turbulent8` of `d_scan.c`, its alias light a per-triangle mean. The
+engine's software renderer now ports the originals, with tests pinned on values from the source
+(the `sintable` entries, the sky coordinates of known pixels, the lighting setup of
+`R_AliasSetupLighting` and every entry of `anorms.h`): water is `Turbulent8` with
+`D_CalcGradients` and 16-pixel sub-spans, the sky is the `R_MakeSky` dome of `d_sky.c`, and
+aliases are Gouraud-lit from the light normals. The GPU is compared with those, on the same 16
+views and the same tolerances:
+
+| part | unexplained against Quake's own | before |
+|---|---|---|
+| water | 0.13% | 0.05% (against the old approximation) |
+| sky | 0.30% | 2.32% |
+| alias models | 0.10% | 0.10% |
+| the BSP world | 0.006% | 1.52% |
+
+The world figure comes from isolating the old mismatch: the reference's 8-pixel perspective
+sub-spans and its left-edge pixel coverage, which the shader now reproduces (the GPU world costs
+about 0.15 ms more at 1280x800). Not ported: the light at an entity's origin (`R_LightPoint`;
+entities use a constant), the fixed-point edge walk of `d_polyse.c`, the surface cache and its
+mip levels; and the GPU does not reproduce the 16- and 32-pixel sub-spans of water and sky.
 
 ## Licensing {#licensing}
 
