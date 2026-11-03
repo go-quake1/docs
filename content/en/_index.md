@@ -60,6 +60,28 @@ the WebGPU path in interleaved rounds on the same machine, discarding any round 
 1-minute load of 8. The figures, and what is still on the CPU (the BSP walk and the span
 filling), are in the engine repository under `docs/webgpu-present/`.
 
+## The BSP world on the GPU {#gpu-world}
+
+The browser build can draw the BSP world itself on the GPU (`render/gpuworld`, on
+[go-gfx/webgpu](https://github.com/go-gfx/webgpu)). The CPU still walks the BSP and applies the
+PVS (`bsprender`); the GPU then draws the selected faces with their base textures and lightmaps
+into an 8-bit `r8uint` frame of palette indices, through the colormap, exactly as the software
+filler does per pixel. The presenter above can display that frame unchanged, so the look stays
+the software one.
+
+It is checked against a software reference of the same content (`worldview`) on 16 fixed
+`e1m1` views on a real GPU (Apple, not a software adapter): 94.9% of the 1,024,000 pixels are
+identical and 1.52% are neither identical nor a one-pixel shift of the reference (tolerance
+2.5%; a damaged colormap fails the check). Removing the textures leaves 0 unexplained pixels, so
+the remaining differences are texel selection (the software filler is only approximately
+perspective-correct). The check needs the shareware `pak0.pak`, which is never in the
+repository. The reference draws in the engine's walk order with no depth test and no back-face
+cull, so where faces overlap the picture depends on the draw order (reversing the order changes
+19% of the pixels): the GPU path matches it on purpose, and hidden-surface handling like GLQuake's
+is a later step. Sky, water, alias models, dynamic
+lights and animated lightstyles are also later steps. Figures:
+`docs/webgpu-world/` in the engine repository.
+
 ## Licensing {#licensing}
 
 The repository is a **BSD-3-Clause wrapper** around the **GPL-2.0 engine** code
