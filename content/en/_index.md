@@ -119,9 +119,27 @@ views and the same tolerances:
 
 The world figure comes from isolating the old mismatch: the reference's 8-pixel perspective
 sub-spans and its left-edge pixel coverage, which the shader now reproduces (the GPU world costs
-about 0.15 ms more at 1280x800). Not ported: the light at an entity's origin (`R_LightPoint`;
-entities use a constant), the fixed-point edge walk of `d_polyse.c`, the surface cache and its
-mip levels; and the GPU does not reproduce the 16- and 32-pixel sub-spans of water and sky.
+about 0.15 ms more at 1280x800). Not ported in v0.5.x: the light at an entity's origin
+(`R_LightPoint`; entities used a constant), the fixed-point edge walk of `d_polyse.c`, the surface
+cache and its mip levels; and the GPU did not reproduce the 16- and 32-pixel sub-spans of water and
+sky.
+
+### Entity light, the alias edge walk and sub-spans (v0.6.0)
+
+Three of those four are now done, each with tests pinned on values worked from the source, the
+GPU re-compared on the same 16 views and the same tolerance, and a planted defect that must fail:
+
+| piece | unexplained against Quake's own | before |
+|---|---|---|
+| `R_LightPoint` (entity light from the lightmap; hand-worked bilinear cases) | 0.10% (alias) | the same figure at a constant light of 76; lighting the GPU at 76 against `R_LightPoint` is 56.0% |
+| `d_polyse.c` fixed-point edge walk (all 1,024 `adivtab.h` entries, a hand-worked triangle, 3,000 random triangles against a derivation) | 0.75% (0.03% without far models) | 0.10% against the older float scanline; the shader taking the floor for the ceiling is 7.7% |
+| 16-pixel water and 32-pixel sky sub-spans on the GPU | sky 0.02% (differing 0.08%), water 0.11% (differing 0.62%) | sky 0.30% (4.90%), water 0.13% (2.50%) |
+
+The edge walk also fixed a defect: the old alias paths drew the triangles Quake culls, so models
+were drawn inside out. The GPU does not reproduce the recursive drawer Quake uses for a distant
+model (that is the 0.75% against 0.03%). Still not ported: the surface cache with its mip levels
+(`D_CacheSurface`, `R_DrawSurface`, mip chosen from the surface's nearest depth) and the clipping
+of triangles that cross the near plane (`r_aclip.c`).
 
 ## Licensing {#licensing}
 
