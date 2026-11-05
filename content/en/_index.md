@@ -137,9 +137,29 @@ GPU re-compared on the same 16 views and the same tolerance, and a planted defec
 
 The edge walk also fixed a defect: the old alias paths drew the triangles Quake culls, so models
 were drawn inside out. The GPU does not reproduce the recursive drawer Quake uses for a distant
-model (that is the 0.75% against 0.03%). Still not ported: the surface cache with its mip levels
-(`D_CacheSurface`, `R_DrawSurface`, mip chosen from the surface's nearest depth) and the clipping
-of triangles that cross the near plane (`r_aclip.c`).
+model (that is the 0.75% against 0.03%). Still not ported: the clipping of triangles that cross the
+near plane (`r_aclip.c`).
+
+### The surface cache with mip levels (v0.7.0)
+
+The fourth piece. The world is no longer sampled per pixel from the full-size texture and the
+lightmap: each face is drawn from a lit surface at the mip level its distance selects, as in
+Quake's `D_CacheSurface`, `R_BuildLightMap`, `R_DrawSurface` (with its four block drawers) and
+`D_MipLevelForScale`, the allocator `D_SCAlloc` included, with tests pinned on values worked by
+hand from the source. The GPU bakes the same surfaces at four levels into one atlas and reads the
+level the CPU chooses per face and frame.
+
+| comparison, 16 views | differing | unexplained |
+|---|---|---|
+| the v0.6.1 reference against the surface-cache reference | 40.47% | 23.86% |
+| the GPU against the surface-cache reference | 0.006% | 0.0006% |
+| the GPU without the mip choice (level 0) | 27.57% | 13.68% (fails the 2.5% tolerance) |
+| the GPU one mip level too far | 57.93% | 28.20% (fails) |
+
+`nearzi`, the nearest depth of a surface, exists only in Quake's edge-based hidden-surface pass;
+the stand-in is the face's polygon clipped to the view frustum. The engine's own world loop still
+bakes one full-size surface per face. Details, timings against v0.6.1 and what remains:
+`docs/webgpu-world/2026-11-04-surfcache.md` in the engine repository.
 
 ## Licensing {#licensing}
 
