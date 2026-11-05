@@ -158,7 +158,10 @@ level the CPU chooses per face and frame.
 
 `nearzi`, the nearest depth of a surface, exists only in Quake's edge-based hidden-surface pass;
 the stand-in is the face's polygon clipped to the view frustum. The engine's own world loop still
-bakes one full-size surface per face. Details, timings against v0.6.1 and what remains:
+bakes one full-size surface per face (engine issue 72). v0.7.1 cut the GPU path's CPU cost for
+the mip choice from 0.280 ms to 0.205 ms (v0.6.1: 0.180 ms) with one transform per face, a
+bounding-sphere shortcut and the level carried on the draw's first instance, at the same 0.0006%.
+Details, timings against v0.6.1 and what remains:
 `docs/webgpu-world/2026-11-04-surfcache.md` in the engine repository.
 
 ## Licensing {#licensing}
