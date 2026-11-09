@@ -164,6 +164,33 @@ bounding-sphere shortcut and the level carried on the draw's first instance, at 
 Details, timings against v0.6.1 and what remains:
 `docs/webgpu-world/2026-11-04-surfcache.md` in the engine repository.
 
+## Run it in the wasmcontainers playground {#playground}
+
+From engine v0.10.0, `cmd/quake-wctr` is the engine as a wasip1 guest. It draws every frame
+with the software renderer and presents it on a `wasi-gfx:surface`: the 8-bit frame and its
+palette go to the GPU as storage buffers, and a loop-free WGSL shader looks up the colours
+(`render/wasipresent`). Keys come from the surface (`backend/wasisurface`). There is no audio
+yet, and `SkipMenu` boots straight into `e1m1`.
+
+The [go-wasmcontainers playground](https://go-wasmcontainers.github.io/playground/) has a
+`quake` image that runs it in a container on a GPU:
+
+```sh
+wctr run --rm --gpu -m 512m quake
+```
+
+That plays `e1m1` of LibreQuake. Its data is [go-quake1/freepak](https://github.com/go-quake1/freepak)
+v0.2.0, a sovereign `pak0` with no id Software bytes. The image is GPL-3.0-or-later and names its
+source in `/usr/share/doc/quake/copyright`.
+
+The playground's end-to-end test, `TestQuake`, runs in CI on a real GPU (GitHub's macOS runner,
+Apple adapter). For fixed view 4 (640x400), the frame the page receives has RGBA sha256
+`f84421f86941b51dbb5afafd0eb2cb6a608314e3064b07100ff83c2fb2b3c8df`, the exact figure the guest
+computed on the CPU. 150 frames reach the page, 140 of them distinct. One CI run measured 58 ms
+per frame on that runner; that is one run, not a benchmark.
+
+The world drawn on the GPU (the level 2 step) is not done yet.
+
 ## Licensing {#licensing}
 
 The repository is a **BSD-3-Clause wrapper** around the **GPL-2.0 engine** code
