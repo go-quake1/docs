@@ -189,7 +189,32 @@ Apple adapter). For fixed view 4 (640x400), the frame the page receives has RGBA
 computed on the CPU. 150 frames reach the page, 140 of them distinct. One CI run measured 58 ms
 per frame on that runner; that is one run, not a benchmark.
 
-The world drawn on the GPU (the level 2 step) is not done yet.
+### Level 2: the world drawn on the GPU in the container {#level-2}
+
+From engine v0.11.0 to v0.13.0 the GPU world renderer (`render/gpuworld`) also runs inside the
+container, on the batched stream (`wasi_webgpu_batch`): one host crossing per frame instead of one
+per draw.
+
+- **v0.11.0, build for wasip1.** `render/gpuworld` builds for `GOOS=wasip1` on a remote device of
+  go-gfx/webgpu. The atlases go up with `Recorder.WriteTexture` in bands of at most 8 MiB of whole
+  rows, because the 33 MB surface atlas is above the host's 32 MiB frame and `Queue.WriteTexture`
+  is refused on a remote device. A frame is read back with `Recorder.CopyTextureToBuffer` (rows padded
+  to 256 bytes, removed on the CPU).
+- **v0.12.0, bounded loops.** The batch host runs a render module only if every loop is a
+  constant-bound leaf loop of at most 64 iterations. The world shader's polygon-edge loop and the
+  sky and water `runOf` loop now run to `MaxPolyVerts` (64) and break at the face's vertex count;
+  `Build` refuses a face with more vertices. The frame is unchanged: in Chromium on the Apple GPU the
+  world check differs in 11 of 256,000 pixels, as before.
+- **v0.13.0, `quake-wctr --worldref N --gpuworld`.** The view is drawn on the batch device, the
+  index frame is read back in the same submit and presented through `wasipresent`. A GPU frame is not
+  hash-equal to the CPU's, so it is compared with the software frame at the world check's measure,
+  the pixels a one-pixel shift does not explain (tolerance 2.5 %), not with a SHA-256. In the
+  playground's `TestQuake` on the Apple GPU: 7 of 256,000 pixels differ, 0 unexplained. The
+  `--worldref` hashes `TestQuake` compares are still the software frame's, unchanged.
+
+This needs go-wasmcontainers/gpu v0.13.0 (go-gfx/webgpu v0.18.0, with its draw quota) and the
+playground's engine v0.13.0. Not done: the game loop still draws its world on the CPU, and the frame
+time against level 1 is not measured.
 
 ## Licensing {#licensing}
 
