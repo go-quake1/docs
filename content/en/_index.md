@@ -213,8 +213,24 @@ per draw.
   `--worldref` hashes `TestQuake` compares are still the software frame's, unchanged.
 
 This needs go-wasmcontainers/gpu v0.13.0 (go-gfx/webgpu v0.18.0, with its draw quota) and the
-playground's engine v0.13.0. Not done: the game loop still draws its world on the CPU, and the frame
-time against level 1 is not measured.
+playground's engine v0.13.0 or later.
+
+- **v0.14.0, timing.** `quake-wctr --worldref N [--gpuworld] --frames K` prints the first frame apart
+  (the GPU's device, map build and atlas upload) and the mean, median, min and max wall-clock time of
+  the other K frames, present excluded. Measured in Chromium on the Apple GPU (freepak e1m1, view 4,
+  8 interleaved rounds, load at most 8): 7.68 ms per frame in software against 1.08 ms on the GPU
+  with its read-back (-85.9 %), after a 164 ms first frame.
+- **v0.15.0, the game loop.** `quake-wctr --gpuworld` (no `--worldref`) plays with the lit world
+  faces drawn on the GPU, one submit with the read-back per frame; the CPU stays the default. The
+  software pass draws over it, in its own order, the sky and water (the GPU sky is not Quake's dome),
+  the entities, the particles, the view model, the HUD and the menu. The device is opened and the atlases
+  uploaded once, before the first frame. A map whose surfaces do not fit the 8192 x 8192 atlas (freepak
+  e1m2, e1m3, e1m6) plays on the CPU. The host's draw quota (1 Mi per draw, 16 Mi per stream) holds with
+  room: at most 38,571 indices a frame and 27 per draw on the freepak e1 maps. With `--gpuworld-check`
+  every frame is also drawn on the CPU and compared at the world check's measure: 30 frames in the
+  playground's `TestQuake`, worst frame 0.49 % unexplained against 2.5 %.
+
+Light styles and the animation of `+` textures stay at their baked values on the GPU faces.
 
 ## Licensing {#licensing}
 
