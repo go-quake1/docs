@@ -146,8 +146,8 @@ The fourth piece. The world is no longer sampled per pixel from the full-size te
 lightmap: each face is drawn from a lit surface at the mip level its distance selects, as in
 Quake's `D_CacheSurface`, `R_BuildLightMap`, `R_DrawSurface` (with its four block drawers) and
 `D_MipLevelForScale`, the allocator `D_SCAlloc` included, with tests pinned on values worked by
-hand from the source. The GPU bakes the same surfaces at four levels into one atlas and reads the
-level the CPU chooses per face and frame.
+hand from the source. The GPU bakes the same surfaces at four levels (level 0 in one atlas, levels 1 to 3 in a second
+since engine v0.16.0) and reads the level the CPU chooses per face and frame.
 
 | comparison, 16 views | differing | unexplained |
 |---|---|---|
@@ -197,7 +197,7 @@ per draw.
 
 - **v0.11.0, build for wasip1.** `render/gpuworld` builds for `GOOS=wasip1` on a remote device of
   go-gfx/webgpu. The atlases go up with `Recorder.WriteTexture` in bands of at most 8 MiB of whole
-  rows, because the 33 MB surface atlas is above the host's 32 MiB frame and `Queue.WriteTexture`
+  rows, because a surface atlas (up to 8192 x 8192 bytes) is above the host's 32 MiB frame and `Queue.WriteTexture`
   is refused on a remote device. A frame is read back with `Recorder.CopyTextureToBuffer` (rows padded
   to 256 bytes, removed on the CPU).
 - **v0.12.0, bounded loops.** The batch host runs a render module only if every loop is a
@@ -224,11 +224,27 @@ playground's engine v0.13.0 or later.
   faces drawn on the GPU, one submit with the read-back per frame; the CPU stays the default. The
   software pass draws over it, in its own order, the sky and water (the GPU sky is not Quake's dome),
   the entities, the particles, the view model, the HUD and the menu. The device is opened and the atlases
-  uploaded once, before the first frame. A map whose surfaces do not fit the 8192 x 8192 atlas (freepak
-  e1m2, e1m3, e1m6) plays on the CPU. The host's draw quota (1 Mi per draw, 16 Mi per stream) holds with
+  uploaded once, before the first frame. In v0.15.0 a map whose surfaces did not fit the 8192 x 8192
+  atlas (freepak e1m2, e1m3, e1m6) played on the CPU; see v0.16.0 below. The host's draw quota (1 Mi per draw, 16 Mi per stream) holds with
   room: at most 38,571 indices a frame and 27 per draw on the freepak e1 maps. With `--gpuworld-check`
   every frame is also drawn on the CPU and compared at the world check's measure: 30 frames in the
   playground's `TestQuake`, worst frame 0.49 % unexplained against 2.5 %.
+- **v0.16.0, every e1 map on the GPU.** The surfaces go in two atlases of at most 8192 x 8192: level 0
+  in one, levels 1 to 3 in a second (level 0 is at most 8048 rows, on e1m2), so every freepak e1 map
+  builds; a map whose level 0 alone does not fit still plays on the CPU, with a log line. All eight
+  maps pass the world check (0.00 to 0.03 % unexplained against 2.5 %). The world pass alone
+  (`--worldref 4 --frames 60`, 7 interleaved rounds, load at most 8), per frame:
+
+  | map | software | GPU |
+  |---|---|---|
+  | e1m1 | 7.89 ms | 1.18 ms |
+  | e1m2 | 15.28 ms | 1.43 ms |
+  | e1m6 | 9.71 ms | 1.04 ms |
+
+- **v0.17.0, fuzzing.** Every parser that reads a pak (`pak`, `wad`, `spr`, `bspfile`, `mdl`,
+  `progs`, the `lmp` pictures, the entity lump, demos) is fuzzed, with an allocation bound; a
+  malformed header is refused with an error instead of sizing an allocation from it. CI fuzzes each
+  target on every pull request, and longer weekly.
 
 Light styles and the animation of `+` textures stay at their baked values on the GPU faces.
 
