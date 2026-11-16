@@ -181,7 +181,7 @@ wctr run --rm --gpu -m 512m quake            # the main menu
 wctr run --rm --gpu -m 512m quake --map e1m1 # skip the menu: e1m1 from the first tic
 ```
 
-The default is the main menu, as in the browser build (engine v0.19.0). Single Player, New Game
+The default is the main menu, as in the browser build (engine v0.19.0; use v0.19.1, whose module zip builds). Single Player, New Game
 and a skill (Enter, or a click) start the `start` hub of LibreQuake, whose portals change level;
 Escape opens the menu again. `--map NAME` skips the menu. The game asks the page for the pointer
 lock: the first click on the pane locks the mouse (the click only grabs it, so it does not also
