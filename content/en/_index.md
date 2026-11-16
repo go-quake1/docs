@@ -32,7 +32,7 @@ architectures.
 | **progs** (QuakeC VM — 65 opcodes + edicts + parser + math builtins) | done — 100% cov |
 | **server** (host + `sv_world` + `sv_main` + `sv_phys` + `sv_user`) | in progress |
 | **client** + soft renderer (`r_*`, `d_*`, `cl_*`) | pending |
-| **sound** (`snd_dma` + `snd_mem` + `snd_mix`) | pending |
+| **sound** (`snd_dma` + `snd_mem` + `snd_mix`): the channel pool, `Paint`, spatialisation, the WAV loader; the mixer is paced like `S_Update` (v0.22.0) | done |
 
 ## Sound in the wasmbox desktop {#wasmbox-sound}
 
@@ -43,6 +43,19 @@ mixer output (11025 Hz stereo) as float32 PCM into a lock-free `SharedArrayBuffe
 the wasmbox page plays it from an AudioWorklet, resuming on the first click or key. The
 ring is 1024 frames (93 ms); what does not fit is dropped rather than blocking the game
 loop.
+
+### The mixer is paced {#mixer-pacing}
+
+The runloop used to paint a fixed 512 mix frames every tic, whatever the tic's length: 2.79
+times real time at 60 tics a second (6.7 at 144), so sounds were consumed that much too fast
+and the ring dropped the excess. A backend that reports its queue (`backend.QueuedAudio`:
+`backend/wasm`, `backend/wasmbox` and `backend/wasisurface` do) is now paced like tyrquake's
+`S_Update`: each tic paints what the clock owes (`dt * 11025` frames), never more than 0.1 s
+ahead of what the output has played (`_snd_mixahead`), and keeps 0.05 s queued so that a late
+tic does not starve it. Measured as mix frames offered per second of game time over the 11025 a
+second an output plays: 2.79, 6.69 and 2.70 before (60 Hz, 144 Hz, irregular tics), 1.00 after;
+in headless Chromium on a real GPU, 300 frames of e1m1 in a container: 2.77 before, 1.01 after.
+A backend without the interface keeps the fixed chunk.
 
 ## WebGPU presenter in the browser build {#webgpu-present}
 
@@ -171,8 +184,11 @@ From engine v0.10.0, `cmd/quake-wctr` is the engine as a wasip1 guest. It draws 
 with the software renderer and presents it on a `wasi-gfx:surface`: the 8-bit frame and its
 palette go to the GPU as storage buffers, and a loop-free WGSL shader looks up the colours
 (`render/wasipresent`). Keys, the mouse buttons and relative mouse motion come from the surface
-(`backend/wasisurface`, over go-wasmcontainers/gpu v0.14.0's surface extension). There is no
-audio yet.
+(`backend/wasisurface`, over go-wasmcontainers/gpu v0.14.0's surface extension). **Sound** goes
+through the host module `wctr_audio_out` of go-wasmcontainers/engine, opt-in per container like
+the GPU: `wctr run --rm --gpu --audio -m 512m quake` (click the page once; without `--audio`, on
+native `wctr`, or in a build without the `wctraudio` tag, the game plays silent and raises
+nothing). The game boots into the main menu; `--map NAME` skips it.
 
 The [go-wasmcontainers playground](https://go-wasmcontainers.github.io/playground/) has a
 `quake` image that runs it in a container on a GPU:
@@ -229,7 +245,8 @@ playground's engine v0.13.0 or later.
   8 interleaved rounds, load at most 8): 7.68 ms per frame in software against 1.08 ms on the GPU
   with its read-back (-85.9 %), after a 164 ms first frame.
 - **v0.15.0, the game loop.** `quake-wctr --gpuworld` (no `--worldref`) plays with the lit world
-  faces drawn on the GPU, one submit with the read-back per frame; the CPU stays the default. The
+  faces drawn on the GPU, one submit with the read-back per frame; the CPU was the default until
+  v0.22.0 (now the GPU is, when one is granted; `--cpuworld` forces the CPU). The
   software pass draws over it, in its own order, the sky and water (the GPU sky is not Quake's dome),
   the entities, the particles, the view model, the HUD and the menu. The device is opened and the atlases
   uploaded once, before the first frame. In v0.15.0 a map whose surfaces did not fit the 8192 x 8192
@@ -266,7 +283,8 @@ measure with a planted defect that must fail:
   rectangle in the frame's submit under a 4 MiB budget: on e1m1 at 60 frames per second, 4 to 8 KB a
   frame on average (the styles move at 10 Hz, the textures at 5 Hz). 166 of 4,096,000 pixels
   unexplained over 64 animated frames; a GPU that keeps its baked atlas fails at 8.07 %. The CPU
-  path's animation is the 11 default styles; the server's `lightstyle` is not wired on either.
+  path's animation was the 11 default styles; the server's `lightstyle` is wired since v0.22.0
+  (below).
 - **v0.20.0, dynamic lights.** `R_MarkLights`, `R_PushDlights` and the light term of
   `R_BuildLightMap` are ported, with `D_CacheSurface`'s rebuild of a lit surface, from the
   reference source and with tests pinned on values worked from it, together with the lights the
@@ -285,6 +303,17 @@ measure with a planted defect that must fail:
   ordinary alias views are unchanged (346 unexplained of about 50,000 before and after), and the GPU
   alias pass alone costs 0.07 ms more there (1.015 ms against 0.945 ms; the software one is 0.60 ms,
   so the GPU alias pass is still not faster than the CPU's at 1280x800).
+- **v0.22.0, the gaps closed.** The game loop draws its world on the GPU by default when a GPU is
+  granted (`--cpuworld` forces the CPU, `--gpuworld` fails instead of falling back). The server's
+  `lightstyle` is wired (`PF_lightstyle`, `svc_lightstyle`, `R_AnimateLight`): 144 of 4,096,000
+  pixels unexplained, and a GPU that keeps the default table fails at 36.0 %. `TE_EXPLOSION2`
+  makes its light and entities are lit by the dynamic lights (`R_AliasSetupLighting`): 361 of
+  51,891 alias pixels unexplained, a GPU without them fails at 48.6 %. The dynamic-light uploads
+  are coalesced (wall time 3.63 to 3.37 ms with three lights; the CPU time, 1.75 ms, is the bake
+  of the lit surfaces, 1.03 ms of it). The GPU alias pass alone is 0.97 ms, of which 0.68 ms is the
+  floor of a submit and a wait; in a frame it adds under 0.1 ms.
+- **v0.23.0, `TE_EXPLOSION2`'s particles.** `R_ParticleExplosion2`: 512 particles coloured from
+  the message's colour range.
 
 Figures and methods: `docs/webgpu-world/2026-11-16-*.md` in the engine repository.
 
