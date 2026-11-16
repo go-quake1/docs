@@ -314,6 +314,17 @@ measure with a planted defect that must fail:
   floor of a submit and a wait; in a frame it adds under 0.1 ms.
 - **v0.23.0, `TE_EXPLOSION2`'s particles.** `R_ParticleExplosion2`: 512 particles coloured from
   the message's colour range.
+- **v0.24.0, the alias entities on the GPU.** The game loop draws the alias entities on the GPU when
+  it draws the world there, in a pass of their own into a second index texture (same submit, second
+  read-back), composited over the frame after the CPU's sky and water, because the software pass
+  draws entities over everything. The CPU keeps the far models (recursive subdivision), the models
+  with animated frame groups, the view model and any frame with fewer than three entities
+  (`--min-gpu-entities`); `--cpuworld` keeps them all. `--gpuworld-check` also compares the pixels the
+  entities change (tolerance 3 %): 18,174 pixels, 0 differ on a real GPU; with the GPU's skins shifted
+  by 16 (`--corrupt-gpu-skins`) 85.6 % are unexplained and it fails. At e1m1's first view (one entity)
+  the frame is unchanged, 16.85 against 16.88 ms; with the layer forced on for that one entity it is
+  0.5 ms of phases worse, which is why there is a threshold. Where entities crowd the view the GPU
+  pass adds under 0.1 ms against the software pass's 0.59 ms.
 
 Figures and methods: `docs/webgpu-world/2026-11-16-*.md` in the engine repository.
 
