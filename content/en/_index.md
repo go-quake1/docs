@@ -78,8 +78,9 @@ perspective-correct). The check needs the shareware `pak0.pak`, which is never i
 repository. The reference draws in the engine's walk order with no depth test and no back-face
 cull, so where faces overlap the picture depends on the draw order (reversing the order changes
 19% of the pixels): the GPU path matches it on purpose, and hidden-surface handling like GLQuake's
-is a later step. Dynamic lights and animated lightstyles are also later steps. Figures:
-`docs/webgpu-world/` in the engine repository.
+is a later step. Animated light styles and `+` textures (v0.18.0), dynamic lights (v0.20.0) and
+the clipping of alias triangles (v0.21.0) came later and are described [below](#gpu-animation).
+Figures: `docs/webgpu-world/` in the engine repository.
 
 ### Alias models, sky and water on the GPU
 
@@ -137,8 +138,8 @@ GPU re-compared on the same 16 views and the same tolerance, and a planted defec
 
 The edge walk also fixed a defect: the old alias paths drew the triangles Quake culls, so models
 were drawn inside out. The GPU does not reproduce the recursive drawer Quake uses for a distant
-model (that is the 0.75% against 0.03%). Still not ported: the clipping of triangles that cross the
-near plane (`r_aclip.c`).
+model (that is the 0.75% against 0.03%). The clipping of triangles that cross the near plane
+(`r_aclip.c`) was not ported in v0.6.0; v0.21.0 ports it ([below](#gpu-animation)).
 
 ### The surface cache with mip levels (v0.7.0)
 
@@ -253,7 +254,39 @@ playground's engine v0.13.0 or later.
   malformed header is refused with an error instead of sizing an allocation from it. CI fuzzes each
   target on every pull request, and longer weekly.
 
-Light styles and the animation of `+` textures stay at their baked values on the GPU faces.
+### Light styles, dynamic lights and alias clipping on the GPU {#gpu-animation}
+
+Engine issue 106 closed the three gaps the GPU world and the software pass had in common, each
+in its own release, each compared on a real GPU (Apple M4 Max, Chromium) at the world check's
+measure with a planted defect that must fail:
+
+- **v0.18.0, light styles and `+` textures.** The surface atlases were baked once. The world
+  now carries its animation (`d_lightstylevalue` and `R_TextureAnimation`), and the GPU re-bakes,
+  per frame, only the surfaces it draws whose styles or texture frame changed, uploading each
+  rectangle in the frame's submit under a 4 MiB budget: on e1m1 at 60 frames per second, 4 to 8 KB a
+  frame on average (the styles move at 10 Hz, the textures at 5 Hz). 166 of 4,096,000 pixels
+  unexplained over 64 animated frames; a GPU that keeps its baked atlas fails at 8.07 %. The CPU
+  path's animation is the 11 default styles; the server's `lightstyle` is not wired on either.
+- **v0.20.0, dynamic lights.** `R_MarkLights`, `R_PushDlights` and the light term of
+  `R_BuildLightMap` are ported, with `D_CacheSurface`'s rebuild of a lit surface, from the
+  reference source and with tests pinned on values worked from it, together with the lights the
+  client makes (`CL_AllocDlight`, `CL_DecayLights`, the muzzle flash, the bright and dim lights,
+  the rocket, `TE_EXPLOSION`). The GPU re-bakes the surfaces a light reaches in each frame it
+  reaches them: with a muzzle flash, a rocket and an explosion around each of 16 views, 7 of
+  1,024,000 pixels unexplained (the lights change 87 % of the picture); a GPU that ignores them
+  fails at 81 %. With all three lights around the view a GPU frame is 3.7 ms against 1.4 ms
+  without, and a software frame is 40 ms.
+- **v0.21.0, alias clipping.** `r_aclip.c` is ported: a triangle of a model that is partly outside
+  the view is clipped against the near plane and the four sides of the frame and drawn as a fan,
+  where one crossing the near plane was dropped. The GPU runs the same clipper in its alias vertex
+  shader for the entities the CPU finds partly outside the view. With the camera 10 to 28 units
+  from each of 16 targets (37 entities cross the near plane or the frame), 286 of 173,271 alias pixels
+  unexplained (0.17 %, tolerance 3 %); a GPU that drops those triangles fails at 6.33 %. The
+  ordinary alias views are unchanged (346 unexplained of about 50,000 before and after), and the GPU
+  alias pass alone costs 0.07 ms more there (1.015 ms against 0.945 ms; the software one is 0.60 ms,
+  so the GPU alias pass is still not faster than the CPU's at 1280x800).
+
+Figures and methods: `docs/webgpu-world/2026-11-16-*.md` in the engine repository.
 
 ## Licensing {#licensing}
 
