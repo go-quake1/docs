@@ -222,7 +222,8 @@ playground's engine v0.13.0 or later.
   8 interleaved rounds, load at most 8): 7.68 ms per frame in software against 1.08 ms on the GPU
   with its read-back (-85.9 %), after a 164 ms first frame.
 - **v0.15.0, the game loop.** `quake-wctr --gpuworld` (no `--worldref`) plays with the lit world
-  faces drawn on the GPU, one submit with the read-back per frame; the CPU stays the default. The
+  faces drawn on the GPU, one submit with the read-back per frame; the CPU was the default until
+  v0.22.0 (now the GPU is, when one is granted; `--cpuworld` forces the CPU). The
   software pass draws over it, in its own order, the sky and water (the GPU sky is not Quake's dome),
   the entities, the particles, the view model, the HUD and the menu. The device is opened and the atlases
   uploaded once, before the first frame. In v0.15.0 a map whose surfaces did not fit the 8192 x 8192
@@ -259,7 +260,8 @@ measure with a planted defect that must fail:
   rectangle in the frame's submit under a 4 MiB budget: on e1m1 at 60 frames per second, 4 to 8 KB a
   frame on average (the styles move at 10 Hz, the textures at 5 Hz). 166 of 4,096,000 pixels
   unexplained over 64 animated frames; a GPU that keeps its baked atlas fails at 8.07 %. The CPU
-  path's animation is the 11 default styles; the server's `lightstyle` is not wired on either.
+  path's animation was the 11 default styles; the server's `lightstyle` is wired since v0.22.0
+  (below).
 - **v0.20.0, dynamic lights.** `R_MarkLights`, `R_PushDlights` and the light term of
   `R_BuildLightMap` are ported, with `D_CacheSurface`'s rebuild of a lit surface, from the
   reference source and with tests pinned on values worked from it, together with the lights the
@@ -278,6 +280,17 @@ measure with a planted defect that must fail:
   ordinary alias views are unchanged (346 unexplained of about 50,000 before and after), and the GPU
   alias pass alone costs 0.07 ms more there (1.015 ms against 0.945 ms; the software one is 0.60 ms,
   so the GPU alias pass is still not faster than the CPU's at 1280x800).
+- **v0.22.0, the gaps closed.** The game loop draws its world on the GPU by default when a GPU is
+  granted (`--cpuworld` forces the CPU, `--gpuworld` fails instead of falling back). The server's
+  `lightstyle` is wired (`PF_lightstyle`, `svc_lightstyle`, `R_AnimateLight`): 144 of 4,096,000
+  pixels unexplained, and a GPU that keeps the default table fails at 36.0 %. `TE_EXPLOSION2`
+  makes its light and entities are lit by the dynamic lights (`R_AliasSetupLighting`): 361 of
+  51,891 alias pixels unexplained, a GPU without them fails at 48.6 %. The dynamic-light uploads
+  are coalesced (wall time 3.63 to 3.37 ms with three lights; the CPU time, 1.75 ms, is the bake
+  of the lit surfaces, 1.03 ms of it). The GPU alias pass alone is 0.97 ms, of which 0.68 ms is the
+  floor of a submit and a wait; in a frame it adds under 0.1 ms.
+- **v0.23.0, `TE_EXPLOSION2`'s particles.** `R_ParticleExplosion2`: 512 particles coloured from
+  the message's colour range.
 
 Figures and methods: `docs/webgpu-world/2026-11-16-*.md` in the engine repository.
 
